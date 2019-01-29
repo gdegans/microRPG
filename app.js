@@ -282,6 +282,7 @@ io.sockets.on('connection', function(socket) { // Connexion
   //    joueur.enCombat = 0;
   //    ennemi.xp = 0;
       socket.emit('mort_ennemi', { joueurServeur: joueur, ennemiServeur: ennemi});
+      AjouterEnnemi(x, y);
       socket.emit('actualiser', { joueurServeur: joueur, ennemiServeur: ennemi});
 
   //    ennemi.force = 0;
