@@ -94,13 +94,13 @@
 				'<br/>PV : ' + joueur.pv +
 				'<br/>Force : ' + joueur.force +
 				'<br/>Défense : ' + joueur.defense +
-				'<br/>XP : ' + joueur.xp + '<br/>';
+				'<br/>XP à ce niveau : ' + joueur.xp + '<br/>';
 				//attention aux failles XSS. Utiliser innerTEXT, $``
 				//if ((nbAttaque == 0) && (joueur.enCombat == 0)) {
 					//document.getElementById('zonePersonnage').innerHTML +=
 					//'<br/><button type="button" onclick="socket.emit(\'creation_ennemi\', { joueurClient: joueur}); " id="bouton_combattre">Nouveau monstre !</button>';
 				//}
-				taille = (joueur.xp / 30) * 300;
+				taille = (joueur.xp / joueur.palier) * 300;
 				if (taille > 300) {
 					taille = 300;
 				}

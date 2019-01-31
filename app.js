@@ -6,11 +6,19 @@
 		- Aggrandissement de la map ?
 
 	- Système d'inventaire :
-		- Inventaire pour le joueur
+		- Inventaire pour le joueur (équipement/objets)
 		- Inventaire pour les ennemis
 		- Qui peuvent posséder potions, or, équipement
 
-	- Système d'équipement
+	- Système d'équipement :
+		- Armes, Armure/Bouclier
+
+	- Graphismes :
+		- Personnages
+		- Décors
+		- Objets
+
+	- Déplacement des ennemis
 
 */
 
@@ -53,10 +61,11 @@ class Joueur {
 		this.defense = defense;
 		this.inventaire = [];
 		this.xp = 0;
+		this.palier = 30;
 		this.nbAttaque = 0;
 		this.enCombat = 0;
-		this.positionY = 1;
 		this.positionX = 1;
+		this.positionY = 1;
 	}
 }
 
@@ -68,7 +77,7 @@ class Ennemi {
 		this.force = force;
 		this.defense = defense;
 		this.inventaire = [];
-		this.valeur_xp = force;
+		this.xp = force;
 		this.nbAttaque = 0;
 	}
 }
@@ -79,7 +88,7 @@ function AjouterEnnemiSurMap(xmax, ymax) {
 	while (map[positionXEnnemi][positionYEnnemi] != "") {
 		positionXEnnemi = Aleatoire(1, xmax);
 		positionYEnnemi = Aleatoire(1, ymax);
-  	}
+	}
 	map[positionXEnnemi][positionYEnnemi] = "Rat mutant";
 }
 
@@ -90,8 +99,8 @@ function Aleatoire(min, max) {
 function Attaquer(attaquant, cible) {
 	attaquant.nbAttaque++;
 	degats = attaquant.force - cible.defense;
-	if (degats < 0) {
-		degats = 0;
+	if (degats <= 0) {
+		degats = 1;
 	}
 	cible.pv -= degats;
 	if (cible.pv < 0) {
@@ -113,18 +122,28 @@ function CheckDeplacementJoueur(map, joueur) {
 }
 
 function CreerJoueur(pseudo) {
-	joueur = new Joueur("", 1, 10, 5, 2);
+	joueur = new Joueur("", 1, 25, 5, 3);
 	joueur.nom = pseudo;
 	joueur.pv += Aleatoire(1, 3);
 	joueur.force += Aleatoire(1, 3);
 	joueur.defense += Aleatoire(1, 3);
 }
 
+function LevelUp(joueur) {
+	joueur.pv += Aleatoire(1, 3) + joueur.niveau * 5;
+	joueur.force += Aleatoire(1, 3) + joueur.niveau * 2;
+	joueur.defense += Aleatoire(1, 3) + joueur.niveau * 2;
+	joueur.niveau++;
+	joueur.xp -= joueur.palier;
+	joueur.palier = Math.floor(joueur.palier * 1.4);
+}
+
 function CreerEnnemi() {
 	ennemi = new Ennemi("Rat mutant", 1, 8, 3, 1);
-	ennemi.pv += Aleatoire(1, 3);
-	ennemi.force += Aleatoire(1, 3);
-	ennemi.defense += Aleatoire(1, 3);
+	ennemi.niveau = joueur.niveau + Aleatoire(1, 2) - 1;
+	ennemi.pv = Aleatoire(1, 3) + ennemi.niveau * 3;
+	ennemi.force = Aleatoire(1, 2) + ennemi.niveau * 2;
+	ennemi.defense = Aleatoire(1, 2) + ennemi.niveau * 2;
 	ennemi.xp = ennemi.force;
 	joueur.enCombat = 1;
 }
@@ -142,7 +161,7 @@ function CreerMap(x, y) { // Créé une map de taille x * y
 			//map[i][j] = i + ", " + j;
 			map[i][j] = "";
 			j++;
-    	}
+		}
 	j = 1;
 	i++;
 	}
@@ -178,8 +197,8 @@ io.sockets.on('connection', function(socket) { // Connexion
 			AjouterEnnemiSurMap(x, y);
 			i++
 		}
-    	socket.emit('envoi_map', { mapServeur: map});
-    	console.log(joueur.positionY);
+		socket.emit('envoi_map', { mapServeur: map});
+		console.log(joueur.positionY);
 	});
 
 	socket.on('actualiser_map', function() {
@@ -203,8 +222,8 @@ io.sockets.on('connection', function(socket) { // Connexion
 				}
 			}
 			else if (nomTouche === "ArrowRight") {
-			    console.log("Le joueur doit aller à droite si possible"); // Si le joueur n'est pas sur la dernière colonne
-			    if (joueur.positionX < map.xmax) {
+				console.log("Le joueur doit aller à droite si possible"); // Si le joueur n'est pas sur la dernière colonne
+				if (joueur.positionX < map.xmax) {
 					//map[joueur.positionX][joueur.positionY] = joueur.positionX + ', ' + joueur.positionY;
 					map[joueur.positionX][joueur.positionY] = "";
 					joueur.positionX++;
@@ -236,8 +255,8 @@ io.sockets.on('connection', function(socket) { // Connexion
 					CheckDeplacementJoueur(map, joueur);
 					if (check === 1) {
 						socket.emit('nouvel_ennemi', { joueurServeur: joueur, ennemiServeur: ennemi}); // On lui envoie la liste
-            		}
-            		socket.emit('envoi_map', { mapServeur: map});
+					}
+					socket.emit('envoi_map', { mapServeur: map});
 				}
 			}
 			console.log(nomTouche);
@@ -283,6 +302,9 @@ io.sockets.on('connection', function(socket) { // Connexion
 			socket.emit('mort_ennemi', { joueurServeur: joueur, ennemiServeur: ennemi});
 			AjouterEnnemiSurMap(x, y);
 			map[joueur.positionX][joueur.positionY] = "Joueur";
+			if (joueur.xp >= joueur.palier) {
+				LevelUp(joueur);
+			}
 			socket.emit('actualiser', { joueurServeur: joueur, ennemiServeur: ennemi});
 			//socket.emit('actualiser_map');
 			//ennemi.force = 0;
