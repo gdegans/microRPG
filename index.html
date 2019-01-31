@@ -34,7 +34,7 @@
 
     #zoneMap {
       position: absolute;
-      top: 0px;
+      top: 4px;
       left: 320px;
     }
 
@@ -96,26 +96,23 @@
         '<br/>Force : ' + joueur.force +
         '<br/>Défense : ' + joueur.defense +
         '<br/>XP : ' + joueur.xp + '<br/>';
-        if ((nbAttaque == 0) && (joueur.enCombat == 0)) {
+        //if ((nbAttaque == 0) && (joueur.enCombat == 0)) {
           //document.getElementById('zonePersonnage').innerHTML +=
           //'<br/><button type="button" onclick="socket.emit(\'creation_ennemi\', { joueurClient: joueur}); " id="bouton_combattre">Nouveau monstre !</button>';
 
-        taille = (joueur.xp / 30) * 300;
-        if (taille > 300) {
-          taille = 300;
-        }
-        $("#zoneXP").css("width", taille + "px");
-
-
-        }
+          taille = (joueur.xp / 30) * 300;
+          if (taille > 300) {
+            taille = 300;
+          }
+          $("#zoneXP").css("width", taille + "px");
+        //}
       }
 
       function ActualiserEnnemi(joueur, ennemi) {
         if (nbAttaque == 0) {
-          document.getElementById('zoneEnnemi').innerHTML = 'Attention ! Un nouvel ennemi arrive.<br/>';
-        } else {
-          document.getElementById('zoneEnnemi').innerHTML = '<br/>';
+          document.getElementById('zoneEnnemi').innerHTML = 'Attention ! Un nouvel ennemi arrive.';
         }
+        document.getElementById('zoneEnnemi').innerHTML = '<br/>';
         document.getElementById('zoneEnnemi').innerHTML +=
         '<br/>' + ennemi.nom + ' niveau ' + ennemi.niveau +
         '<br/>PV : ' + ennemi.pv +
@@ -133,15 +130,16 @@
         document.getElementById('zoneMessage').innerHTML = "";
         ResetAttaque();
         socket.emit('creation_joueur', pseudo);
+        socket.emit('creation_map');
       }
 
       socket.emit('creation_joueur', pseudo);
+      socket.emit('creation_map');
+
       socket.on('envoi_joueur', function(data) {
         joueur = data.joueurServeur;
         ActualiserJoueur(joueur);
       });
-
-      socket.emit('demande_map');
 
       socket.on('envoi_map', function(data) {
         map = data.mapServeur;
@@ -152,17 +150,31 @@
         while (j <= map.ymax) {
           affichageMap += "<tr>";
           while (i <= map.xmax) {
-            affichageMap += "<td>" + map[i][j] + "</td>";
+            if (map[i][j] === "Rat mutant") {
+              affichageMap += "<td style='background-color: yellow'>" + map[i][j] + "</td>";
+            }
+            else if (map[i][j] === "Baston") {
+              affichageMap += "<td style='background-color: red'>" + map[i][j] + "</td>";
+            }
+            else if (map[i][j] === "Joueur") {
+              affichageMap += "<td style='background-color: green'>" + map[i][j] + "</td>";
+            }
+            else if (map[i][j] === "Mort") {
+              affichageMap += "<td style='background-color: black; color: white'>" + map[i][j] + "</td>";
+            }
+            else {
+              affichageMap += "<td>" + map[i][j] + "</td>";
+            }
+            //$("td").css("background-color", "white");
             i++;
           }
           affichageMap += "</tr>";
           i = 1;
           j++;
         }
-  //      affichageMap += "</tr>";
-  //      i = 1;
-//        j++;
-
+        //affichageMap += "</tr>";
+        //i = 1;
+        //j++;
         affichageMap += "</table>";
         document.getElementById('zoneMap').innerHTML = affichageMap;
       });
@@ -195,15 +207,28 @@
         'Bravo, vous avez terrassé un ' + ennemi.nom + ' de niveau ' + ennemi.niveau + ' !' +
         '<br/>Vous remportez ' + ennemi.xp + ' XP !' +
         '<br/>Continuer à farmer des mobs ?' +
-        '<br/><button type="button" onclick="ResetEnCombat(joueur); ResetAttaque(); ActualiserJoueur(joueur); Vider(\'zoneEnnemi\'); Vider(\'zoneMessage\'); socket.emit(\'actualiser\', { joueurClient: joueur, ennemiClient: ennemi});" id="bouton_combattre">Oui !</button>';
-      //  ActualiserJoueur(joueur);
+        '<br/><button type="button" onclick="ResetEnCombat(joueur); ResetAttaque(); ActualiserJoueur(joueur); Vider(\'zoneEnnemi\'); Vider(\'zoneMessage\'); socket.emit(\'actualiser\', { joueurClient: joueur, ennemiClient: ennemi}); socket.emit(\'actualiser_map\');" id="bouton_combattre">Continuer !</button>';
+        //ActualiserJoueur(joueur);
+      });
+
+      socket.on('actualiser_map', function() {
+
       });
 
       document.addEventListener('keydown', (event) => {
         const nomTouche = event.key;
         if ((nomTouche === 'ArrowUp') || (nomTouche === 'ArrowRight') || (nomTouche === 'ArrowDown') || nomTouche === ('ArrowLeft')) {
           socket.emit('deplacement_joueur', nomTouche);
-  //        return;
+          //return;
+        }
+        if (nomTouche === "a") {
+          document.getElementById('bouton_attaquer').click();
+        }
+        if (nomTouche === "c") {
+          document.getElementById('bouton_combattre').click();
+        }
+        if (nomTouche === "o") {
+          document.getElementById('bouton_recommencer').click();
         }
       }, false);
 
