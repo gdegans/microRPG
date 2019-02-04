@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Micro RPG</title>
+		<style>
+
+		td /* Toutes les cellules des tableaux... */
+		{
+			border: 1px solid black; /* auront une bordure de 1px */
+			width: 30px;
+			height: 30px;
+			text-align: center;
+		}
+
+		a {
+			text-decoration: none;
+			color: black;
+
+		}
+
+		#zone1 {
+			width: 300px;
+			height: 400px;
+			border: 1px solid black;
+		}
+
+		#zonePersonnage {
+			background-color: lightgrey;
+			border-top: 1px solid black;
+		}
+
+		#zoneXP {
+			background-color: lightgreen;
+			width: 0px;
+			height: 5px;
+
+			border-right: 1px solid black;
+		}
+
+		#zoneEnnemi {
+			background-color: lightgrey;
+		}
+
+		#zoneInventaire {
+			margin-top: 10px;
+			width: 300px;
+			min-height: 150px;
+			border: 1px solid black;
+		}
+
+		#zoneMap {
+			position: absolute;
+			top: 4px;
+			left: 320px;
+		}
+
+		</style>
+	</head>
+
+	<body>
+		<div id="zone1">
+			<div id="zoneXP">
+			</div>
+			<div id="zonePersonnage">
+			</div>
+			<br/>
+			<div id="zoneEnnemi">
+			</div>
+			<br/>
+			<div id="zoneMessage">
+			</div>
+		</div>
+		<div id="zoneInventaire">
+		</div>
+		<div id="zoneMap">
+		</div>
+
+		<script src="http://code.jquery.com/jquery-1.10.1.min.js"></script>
+		<script src="/socket.io/socket.io.js"></script>
+		<script>
+			let socket = io.connect('http://localhost:8080'); // Connexion Socket.io
+
+			let nbAttaque = 0;
+			let taille = 0;
+			let id = "";
+			let ennemi = [];
+
+			function CheckDeplacementJoueur(ennemis, joueur) {
+				check = "OK";
+				ennemis.forEach(function(ennemi) {
+					if ((ennemi.positionX === joueur.positionX) && (ennemi.positionY === joueur.positionY)) {
+						map[joueur.positionX][joueur.positionY] = "B";
+						check = ennemi.id;
+					} else if (map[joueur.positionX][joueur.positionY] != "B") {
+						map[joueur.positionX][joueur.positionY] = "J";
+					}
+				});
+				return check;
+			}
+
+			function Vider(zone) {
+				document.getElementById(zone).innerHTML = "";
+			}
+
+			function CompterAttaque() {
+				joueur.nbAttaque++;
+			}
+
+			function ResetAttaque() {
+				nbAttaque = 0;
+			}
+
+			function ResetEnCombat(joueur) {
+				joueur.enCombat = 0;
+			}
+
+			function SetEnCombat(joueur) {
+				joueur.enCombat = 1;
+			}
+
+			function ActualiserJoueur(joueur) {
+				document.getElementById('zonePersonnage').innerHTML =
+				'<u>Fiche de personnage</u> :' +
+				'<br/><b>' + joueur.nom + '</b>' +
+				'<br/>Niveau : ' + joueur.niveau +
+				'<br/>PV : ' + joueur.pv + ' / ' + joueur.pvMax +
+				'<br/>Force : ' + joueur.force +
+				'<br/>Défense : ' + joueur.defense +
+				'<br/>XP à ce niveau : ' + joueur.xp + '<br/>';
+				//attention aux failles XSS. Utiliser innerTEXT, $``
+				//if ((nbAttaque == 0) && (joueur.enCombat == 0)) {
+					//document.getElementById('zonePersonnage').innerHTML +=
+					//'<br/><button type="button" onclick="socket.emit(\'creation_ennemi\', { joueurClient: joueur}); " id="bouton_combattre">Nouveau monstre !</button>';
+				//}
+				taille = (joueur.xp / joueur.palier) * 300;
+				if (taille > 300) {
+					taille = 300;
+				}
+				$("#zoneXP").css("width", taille + "px");
+				document.getElementById('zoneInventaire').innerHTML =
+				'<u>Inventaire</u> :' +
+				'<br/>';
+				i = 0;
+				joueur.inventaire.forEach(function(item) {
+					document.getElementById('zoneInventaire').innerHTML +=
+					'<a href="/inventaire/' + i + '">' + item + '</a><br/>';
+					i++;
+				});
+			}
+
+			function CheckDeplacementEnnemis(ennemi, joueur) {
+				if (ennemi.positionX === joueur.positionX) {
+					if (((ennemi.positionY - 1) === joueur.positionY) || (ennemi.positionY === joueur.positionY) || ((ennemi.positionY + 1) === joueur.positionY)) {
+						checkDeplacementEnnemi = false;
+					} else {
+						checkDeplacementEnnemi = true;
+					}
+				} else if (ennemi.positionY === joueur.positionY) {
+					if (((ennemi.positionX - 1) === joueur.positionX) || ((ennemi.positionX + 1) === joueur.positionX)) {
+						checkDeplacementEnnemi = false;
+					} else {
+						checkDeplacementEnnemi = true;
+					}
+				} else if ((ennemi.positionX + 1) === joueur.positionX) {
+					if (((ennemi.positionY - 1) === joueur.positionY) || ((ennemi.positionY + 1) === joueur.positionY)) {
+						checkDeplacementEnnemi = false;
+					} else {
+						checkDeplacementEnnemi = true;
+					}
+				} else if ((ennemi.positionX - 1) === joueur.positionX) {
+					if (((ennemi.positionY - 1) === joueur.positionY) || ((ennemi.positionY + 1) === joueur.positionY)) {
+						checkDeplacementEnnemi = false;
+					} else {
+						checkDeplacementEnnemi = true;
+					}
+				} else {
+					checkDeplacementEnnemi = true;
+				}
+				return checkDeplacementEnnemi;
+			}
+
+			function DeplacerEnnemis() {
+				ennemis.forEach(function(ennemi) {
+					if (CheckDeplacementEnnemis(ennemi, joueur)) { // Si l'ennemi est autorisé à se déplacer
+						caseLibre = [];
+						direction = 0;
+						// On ajoute chaque direction possible dans un array
+						if ((ennemi.positionY > 1) && (map[ennemi.positionX][ennemi.positionY - 1] === "")) {
+							caseLibre.push("Haut");
+						}
+						if ((ennemi.positionX < map.xmax) && (map[ennemi.positionX + 1][ennemi.positionY] === "")) {
+							caseLibre.push("Droite");
+						}
+						if ((ennemi.positionY < map.ymax) && (map[ennemi.positionX][ennemi.positionY + 1] === "")) {
+							caseLibre.push("Bas");
+						}
+						if ((ennemi.positionX > 1) && (map[ennemi.positionX - 1][ennemi.positionY] === "")) {
+							caseLibre.push("Gauche");
+						}
+						// On renvoie un nombre entre 1 et le nombre de directions possible
+						if (caseLibre.length > 0) {
+							choixDirection = caseLibre[Aleatoire(1, caseLibre.length) - 1];
+							if (choixDirection === "Haut") {
+								direction = 1;
+							} else if (choixDirection === "Droite") {
+								direction = 2;
+							} else if (choixDirection === "Bas") {
+								direction = 3;
+							} else if (choixDirection === "Gauche") {
+								direction = 4;
+							}
+						} else {
+							direction = 0;
+						}
+
+						if (direction === 1) { // Aller en haut
+							//console.log("Tirage en haut");
+								map[ennemi.positionX][ennemi.positionY] = "";
+								ennemi.positionY--;
+								map[ennemi.positionX][ennemi.positionY] = ennemi.nom;
+						} else if (direction === 2) { // Aller à droite
+							//console.log("Tirage à droite");
+								map[ennemi.positionX][ennemi.positionY] = "";
+								ennemi.positionX++;
+								map[ennemi.positionX][ennemi.positionY] = ennemi.nom;
+						} else if (direction === 3) { // Aller en bas
+						//console.log("Tirage en bas");
+							map[ennemi.positionX][ennemi.positionY] = "";
+							ennemi.positionY++;
+							map[ennemi.positionX][ennemi.positionY] = ennemi.nom;
+						} else if (direction === 4) { // Aller à gauche
+							//console.log("Tirage à gauche");
+							map[ennemi.positionX][ennemi.positionY] = "";
+							ennemi.positionX--;
+							map[ennemi.positionX][ennemi.positionY] = ennemi.nom;
+						}
+					}
+				});
+				//console.log(ennemis);
+			}
+
+			function ActualiserEnnemi(joueur, ennemi, idEnnemi) {
+				if ((joueur.enCombat === 1) && (joueur.nbAttaque == 0)) {
+					document.getElementById('zoneEnnemi').innerHTML = 'Attention ! Un ennemi arrive.<br/>';
+				} else { document.getElementById('zoneEnnemi').innerHTML = '<br/>'; }
+				document.getElementById('zoneEnnemi').innerHTML +=
+				'<br/>' + ennemi.nom + ' niveau ' + ennemi.niveau +
+				'<br/>PV : ' + ennemi.pv +
+				'<br/>Force : ' + ennemi.force +
+				'<br/>Défense : ' + ennemi.defense;
+				if (ennemi.pv > 0 && joueur.pv > 0) {
+					document.getElementById('zoneEnnemi').innerHTML +=
+					'<br/><button type="button" onclick="CompterAttaque(); Combattre(joueur, ennemis, idEnnemi);" id="bouton_attaquer">Attaquer !</button>';
+				}
+			}
+
+			function Combattre(joueur, ennemis, idEnnemi) {
+				ennemi = ennemis[idEnnemi];
+				Attaquer(joueur, ennemi);
+				Attaquer(ennemi, joueur);
+				if (ennemi.pv === 0) {
+					ActualiserEnnemi(joueur, ennemi, idEnnemi);
+					joueur.xp += ennemi.xp;
+					if (ennemi.inventaire != "") {
+						ennemi.inventaire.forEach(function(item) {
+							joueur.inventaire.push(item);
+						});
+					}
+					joueur.enCombat = 1;
+					map[joueur.positionX][joueur.positionY] = "J";
+					ActualiserJoueur(joueur);
+					ActualiserEnnemi(joueur, ennemi, idEnnemi);
+					ennemis[id] = [];
+					idEnnemi = false;
+					joueur.nbAttaque = 0;
+					document.getElementById('zoneMessage').innerHTML =
+					'Bravo, vous avez terrassé un ' + ennemi.nom + ' de niveau ' + ennemi.niveau + ' !' +
+					'<br/>Vous remportez ' + ennemi.xp + ' XP !' +
+					'<br/>Continuer à farmer des mobs ?' +
+					'<br/><button type="button" onclick="ResetEnCombat(joueur); ResetAttaque(joueur); ActualiserJoueur(joueur); Vider(\'zoneEnnemi\'); Vider(\'zoneMessage\'); socket.emit(\'actualiser\', {joueurClient: joueur, ennemisClient: ennemis, idEnnemiClient: idEnnemi, mapClient: map}); socket.emit(\'supprimer_ennemi\', { joueurClient: joueur, ennemisClient: ennemis, idEnnemiClient: idEnnemi, mapClient: map});" id="bouton_combattre">Continuer !</button>';
+				} else {
+					socket.emit('actualiser', {joueurClient: joueur, ennemisClient: ennemis, idEnnemiClient: idEnnemi, mapClient: map});
+				}
+			}
+
+			function Attaquer(attaquant, cible) {
+				attaquant.nbAttaque++;
+				degats = attaquant.force - cible.defense;
+				if (degats <= 0) {
+					degats = 1;
+				}
+				cible.pv -= degats;
+				if (cible.pv < 0) {
+					cible.pv = 0;
+				}
+			}
+
+			function Recommencer(pseudo) {
+				joueur = [];
+				map = [];
+				ennemis = [];
+				ennemi = [];
+				idEnnemi = [];
+				document.getElementById('zonePersonnage').innerHTML = "";
+				document.getElementById('zoneEnnemi').innerHTML = "";
+				document.getElementById('zoneMessage').innerHTML = "";
+				ResetAttaque();
+				socket.emit('creation_joueur', pseudo);
+				socket.emit('creation_map');
+			}
+
+			function Aleatoire(min, max) {
+				return Math.floor(Math.random() * (max - min + 1)) + min;
+			}
+
+			function ActualiserMap(map) {
+				var affichageMap = "";
+				var i = 1;
+				var j = 1;
+				affichageMap = "<table><tr>";
+				while (j <= map.ymax) {
+					affichageMap += "<tr>";
+					while (i <= map.xmax) {
+						if (map[i][j] === "E") {
+							affichageMap += "<td style='background-color: yellow'>" + map[i][j] + "</td>";
+						} else if (map[i][j] === "B") {
+							affichageMap += "<td style='background-color: red'>" + map[i][j] + "</td>";
+						} else if (map[i][j] === "J") {
+							affichageMap += "<td style='background-color: green'>" + map[i][j] + "</td>";
+						} else if (map[i][j] === "M") {
+							affichageMap += "<td style='background-color: black; color: white'>" + map[i][j] + "</td>";
+						} else {
+							affichageMap += "<td>" + map[i][j] + "</td>";
+						}
+						//$("td").css("background-color", "white");
+						i++;
+					}
+					affichageMap += "</tr>";
+					i = 1;
+					j++;
+				}
+				//affichageMap += "</tr>";
+				//i = 1;
+				//j++;
+				affichageMap += "</table>";
+				document.getElementById('zoneMap').innerHTML = affichageMap;
+			//});
+
+			}
+
+			socket.on('redirect', function(destination) {
+				window.location.href = destination;
+			});
+
+				var joueur = <%-JSON.stringify(joueur)%>
+				var map = <%-JSON.stringify(map)%>
+				var ennemis = <%-JSON.stringify(ennemis)%>
+				var idEnnemi = <%-JSON.stringify(idEnnemi)%>
+				ennemi = ennemis[idEnnemi];
+				console.log(joueur);
+				ActualiserJoueur(joueur);
+				ActualiserMap(map);
+				if ((Number.isInteger(idEnnemi)) && (joueur.enCombat === 1)) {
+					ActualiserEnnemi(joueur, ennemi, idEnnemi);
+				} else {
+					Vider('zoneEnnemi');
+				}
+
+			socket.on('debut_combat', function(data) {
+				joueur = data.joueurServeur;
+				ennemis = data.ennemisServeur;
+				idEnnemi = data.idEnnemiServeur;
+				ennemi = ennemis[idEnnemi];
+				ActualiserEnnemi(joueur, ennemi, idEnnemi);
+				Vider('zoneMessage');
+			});
+
+			socket.on('actualiser', function(data) {
+				joueur = data.joueurServeur;
+				ennemis = data.ennemisServeur;
+				idEnnemi = data.idEnnemiServeur;
+				ActualiserJoueur(joueur);
+				//Actualiser(map);
+				ennemi = ennemis[idEnnemi];
+				ActualiserEnnemi(joueur, ennemi, idEnnemi);
+			});
+
+			if (joueur.pv === 0) {
+				//joueur.pv = 0;
+				joueur.enCombat = 1;
+				ActualiserJoueur(joueur);
+				map[joueur.positionX][joueur.positionY] = "M";
+				ActualiserMap(map);
+				document.getElementById('zoneMessage').innerHTML =
+				'Quel dommage, ' + joueur.nom + '... Si près du but :(' +
+				'<br/>Voulez-vous recommencer ?' +
+				'<br/><button type="button" onclick="Recommencer(joueur.nom);" id="bouton_recommencer">Oui !</button>'
+			}
+
+			document.addEventListener('keydown', (event) => {
+				const nomTouche = event.key;
+
+				if (nomTouche === "a") {
+					document.getElementById('bouton_attaquer').click();
+				}
+				if (nomTouche === "c") {
+					document.getElementById('bouton_combattre').click();
+				}
+				if (nomTouche === "o") {
+					document.getElementById('bouton_recommencer').click();
+				}
+
+				if (joueur.enCombat === 0) { // Si le joueur n'est pas en combat, on prend en compte les input
+					if (nomTouche === "ArrowUp") {
+						console.log("Le joueur doit aller en haut si possible");
+						if (joueur.positionY > 1) { // Si le joueur n'est pas sur la première ligne
+							//map[joueur.positionX][joueur.positionY] = joueur.positionX + ', ' + joueur.positionY;
+							map[joueur.positionX][joueur.positionY] = "";
+							joueur.positionY--;
+							CheckDeplacementJoueur(ennemis, joueur);
+							if (Number.isInteger(check)) {
+								joueur.enCombat = 1;
+								idEnnemi = check;
+								socket.emit('debut_combat', { joueurClient: joueur, mapClient: map, ennemisClient: ennemis, idEnnemiClient: idEnnemi });
+								//ActualiserEnnemi(joueur, ennemi, idEnnemi);
+								console.log(idEnnemi);
+							} else {
+								DeplacerEnnemis();
+							}
+							//socket.emit('envoi_map', { mapServeur: map}); // On lui envoie la liste
+						}
+					}
+					else if (nomTouche === "ArrowRight") {
+						//console.log("Le joueur doit aller à droite si possible"); // Si le joueur n'est pas sur la dernière colonne
+						if (joueur.positionX < map.xmax) {
+							//map[joueur.positionX][joueur.positionY] = joueur.positionX + ', ' + joueur.positionY;
+							map[joueur.positionX][joueur.positionY] = "";
+							joueur.positionX++;
+							CheckDeplacementJoueur(ennemis, joueur);
+							if (Number.isInteger(check)) {
+								joueur.enCombat = 1;
+								idEnnemi = check;
+								socket.emit('debut_combat', { joueurClient: joueur, mapClient: map, ennemisClient: ennemis, idEnnemiClient: idEnnemi });
+								//ActualiserEnnemi(joueur, ennemi, idEnnemi);
+								console.log(idEnnemi);
+							} else {
+								DeplacerEnnemis();
+							}
+							//socket.emit('envoi_map', { mapServeur: map}); // On lui envoie la liste
+						}
+					}
+					else if (nomTouche === "ArrowDown") {
+						//console.log("Le joueur doit aller en bas si possible"); // Si le joueur n'est pas sur la dernière ligne
+						if (joueur.positionY < map.ymax) {
+							//map[joueur.positionX][joueur.positionY] = joueur.positionX + ', ' + joueur.positionY;
+							map[joueur.positionX][joueur.positionY] = "";
+							joueur.positionY++;
+							CheckDeplacementJoueur(ennemis, joueur);
+							if (Number.isInteger(check)) {
+								joueur.enCombat = 1;
+								idEnnemi = check;
+								socket.emit('debut_combat', { joueurClient: joueur, mapClient: map, ennemisClient: ennemis, idEnnemiClient: idEnnemi });
+								//ActualiserEnnemi(joueur, ennemi, idEnnemi);
+								console.log(idEnnemi);
+							} else {
+								DeplacerEnnemis();
+							}
+							//socket.emit('envoi_map', { mapServeur: map}); // On lui envoie la liste
+						}
+					} else if (nomTouche === "ArrowLeft") {
+						//console.log("Le joueur doit aller à gauche si possible"); // Si le joueur n'est pas sur la première colonne
+						if (joueur.positionX > 1) {
+							//map[joueur.positionX][joueur.positionY] = joueur.positionX + ', ' + joueur.positionY;
+							map[joueur.positionX][joueur.positionY] = "";
+							joueur.positionX--;
+							CheckDeplacementJoueur(ennemis, joueur);
+							if (Number.isInteger(check)) {
+								joueur.enCombat = 1;
+								idEnnemi = check;
+								socket.emit('debut_combat', { joueurClient: joueur, mapClient: map, ennemisClient: ennemis, idEnnemiClient: idEnnemi });
+								console.log(idEnnemi);
+							} else {
+								DeplacerEnnemis();
+							}
+						}
+					}
+					ActualiserMap(map);
+					if (joueur.enCombat === 1) {
+						ActualiserEnnemi(joueur, ennemi, idEnnemi);
+					}
+
+				}
+
+			}, false);
+
+		</script>
+
+	</body>
+</html>

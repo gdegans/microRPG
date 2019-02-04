@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Micro RPG</title>
+	</head>
+	<body>
+		<script src="/socket.io/socket.io.js"></script>
+		<script>
+			let socket = io.connect('http://localhost:8080'); // Connexion Socket.io
+
+			let pseudo = prompt("Bonjour, jeune héros. Comment devons-nous t'appeler ?");
+
+			socket.emit('creation_joueur', pseudo);
+			socket.emit('creation_map');
+
+			socket.on('redirect', function(destination) {
+				window.location.href = destination;
+			});
+
+		</script>
+	</body>
+</html>
