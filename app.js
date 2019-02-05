@@ -1,42 +1,46 @@
 /* AMÉLIORATIONS :
 
+xhr (ajax)
+fetch, utilise des promise
+fetch(url).then(x => x.text()).then(x => )
+
 	- Bug avec express.socket-io.session :
-		X Message nouvel ennemi qui n'apparait qu'une seule fois
-		X Level up
-		- Quand on prend une potion pendant qu'un ennemi est à zéro
+		? Parfois déplacement des ennemis quand on prend un objet ?
+		- Bug d'affichage quand on raffraichit trop vite
 
 	- Global :
 		- Optimiser les fonctions
 		- Supprimer les envois inutiles
 
+	- BDD :
+		- Ennemis
+		- Objets
+		- Equipement
+
 	- Système de level up :
-		X Pour le joueur
-		X Niveau des monstres et caractéristiques scalés
 		? Améliorer le level scaling
-
-	- Système d'inventaire :
-		X Inventaire pour le joueur (équipement/objets)
-		- Utiliser une potion
-		- Équiper un objet
-		X Inventaire pour les ennemis
-		X Récupérer plusieurs objets en même temps
-		- Gestion de l'or
-		- Trier l'inventaire
-
-	- Système d'équipement :
-		- Armes, Armure/Bouclier
-
-	- Déplacement des ennemis :
-		X Identifier chaque ennemi
-		X Toujours forcer un déplacement sauf quand le joueur est à une case
-		- Quand on entre en combat, déplacement de tous les ennemis sauf celui en combat
 
 	- Graphismes :
 		- Personnages
 		- Décors
 		- Objets
+		- Afficher la barre de vie
+		- Afficher la barre de mana
 
-	- Modification de la map
+	- Système de message :
+		- Quand on rencontre un ennemi
+		- Quand on gagne un combat
+		- Quand on passe un level
+		- Possibilité d'un bouton pour effacer et passer le message
+
+	- Déplacement des ennemis :
+		- Quand on entre en combat, déplacement de tous les ennemis sauf celui en combat
+
+	- Système de magie
+
+
+	- Modification de la map :
+		- Déplacement sur une grande map (Zelda 1 / Zelda 3)
 
 */
 
@@ -59,8 +63,56 @@ var ennemi = [];
 var idEnnemi = false;
 var nouvelID = 0;
 var check = "";
-
+/*
+class BaseEnnemis {
+	constructor(type, nom, niveau, pv, force, defense) {
+		this.type = type;
+		this.nom = nom;
+		this.niveau = niveau;
+		this.pv = pv;
+		this.force = force;
+		this.defense = defense;
+	}
+}
+*/
+var baseEnnemis = [];
+var ennemiFourmi = {
+	type: 0,
+	nom: "E",
+	niveau: 1,
+	pv: 1,
+	force: 1,
+	defense: 1
+};
+var ennemiRat = {
+	type: 1,
+	nom: "Rat mutant",
+	niveau: 1,
+	pv: 1,
+	force: 1,
+	defense: 1
+};
+var ennemiLoup = {
+	type: 2,
+	nom: "Loup",
+	niveau: 1,
+	pv: 1,
+	force: 1,
+	defense: 1
+};
+baseEnnemis.push(ennemiFourmi);
+baseEnnemis.push(ennemiRat);
+baseEnnemis.push(ennemiLoup);
+/*
+baseEnnemis[0].type = 0;
+baseEnnemis[0].nom = "E";
+baseEnnemis[0].niveau = "1";
+baseEnnemis[0].pv = "1";
+baseEnnemis[0].force = "1";
+baseEnnemis[0].defense = "1";
+*/
 var app = require('express')();
+var express = require('express');
 var server  = require("http").createServer(app);
 var io = require("socket.io")(server);
 var session = require("express-session")({
@@ -76,6 +128,9 @@ var urlencodedParser = bodyParser.urlencoded({ extended: false });
 
 // Attach session
 app.use(session);
+
+app.use(express.static(__dirname + '/public'));
+
 
 // Share session with io sockets
 io.use(sharedsession(session));
@@ -95,28 +150,29 @@ app.get('/jeu/', function(req, res, next) {
 });
 
 app.get('/inventaire/:idObjet', function(req, res) { // Quand on arrive à la racine
-	if (Number.isInteger(parseInt(req.params.idObjet, 10))) {
-		idObjet = parseInt(req.params.idObjet, 10);
-		console.log(req.params.idObjet + " est un nombre");
-		if (idObjet < req.session.joueur.inventaire.length) {
+	if ((joueur.pv != 0) && (Number.isInteger(parseInt(req.params.idObjet, 10)))) {
+			idObjet = parseInt(req.params.idObjet, 10);
+			console.log(req.params.idObjet + " est un nombre");
+			if (idObjet < req.session.joueur.inventaire.length) {
 
-			if (req.session.joueur.inventaire[idObjet] === "Potion du mob") {
-				req.session.joueur.pv += 15;
-				if (req.session.joueur.pv > req.session.joueur.pvMax) {
-					req.session.joueur.pv = req.session.joueur.pvMax;
+				if (req.session.joueur.inventaire[idObjet] === "Potion du mob") {
+					req.session.joueur.pv += 15;
+					if (req.session.joueur.pv > req.session.joueur.pvMax) {
+						req.session.joueur.pv = req.session.joueur.pvMax;
+					}
+				} else if (req.session.joueur.inventaire[idObjet] === "Épée courte") {
+					req.session.joueur.mainG = "Épée courte (+2)";
+					req.session.joueur.force += 2;
 				}
-			} else if (req.session.joueur.inventaire[idObjet] === "Épée courte") {
-				req.session.joueur.force += 2;
+				req.session.joueur.inventaire.splice(idObjet, 1);
 			}
-			req.session.joueur.inventaire.splice(idObjet, 1);
-		}
-	  res.redirect('/jeu/');
+		  res.redirect('/jeu/');
 
-  } else {
-  		console.log(req.params.id + " n'est pas un nombre");
-  		//joueur.inventaire.splice(req.params.id, 1);
-  	  res.redirect('/');
-  }
+	  } else {
+	  		//console.log(req.params.id + " n'est pas un nombre");
+	  		//joueur.inventaire.splice(req.params.id, 1);
+	  	  res.redirect('/jeu/');
+	  }
 });
 
 io.on("connection", function(socket) {
@@ -135,7 +191,7 @@ io.on("connection", function(socket) {
 		LocaliserJoueur(joueur, map);
 		i = 0;
 		while (i < 8) {
-			CreerEnnemi("E", x, y);
+			CreerEnnemi(1, x, y);
 			i++;
 		}
 		socket.handshake.session.map = map;
@@ -202,7 +258,7 @@ io.on("connection", function(socket) {
 		ennemis = socket.handshake.session.ennemis;
 		idEnnemi = data.idEnnemiClient;
 		ennemi = ennemis[idEnnemi];
-		CreerEnnemi("E", x, y);
+		CreerEnnemi(2, x, y);
 		console.log(ennemis[idEnnemi]);
 		ennemis[idEnnemi] = [];
 		idEnnemi = false;
@@ -242,6 +298,10 @@ class Joueur {
 		this.defense = defense;
 		this.inventaire = [];
 		this.xp = 0;
+		this.or = 0;
+		this.mainG = "";
+		this.mainD = "";
+		this.armure = "";
 		this.palier = 30;
 		this.nbAttaque = 0;
 		this.enCombat = 0;
@@ -251,14 +311,16 @@ class Joueur {
 }
 
 class Ennemi {
-	constructor(id, nom, niveau, pv, force, defense) {
+	constructor(id, type, nom, niveau, pv, force, defense) {
 		this.id = id;
+		this.type = type;
 		this.nom = nom;
 		this.niveau = niveau;
 		this.pv = pv;
 		this.force = force;
 		this.defense = defense;
 		this.inventaire = [];
+		this.or = 0;
 		this.xp = force;
 		this.nbAttaque = 0;
 		this.positionX = 1;
@@ -293,28 +355,31 @@ function Attaquer(attaquant, cible) {
 }
 
 function CreerJoueur(pseudo) {
-	joueur = new Joueur("", 1, 25, 5, 5);
+	joueur = new Joueur("", 1, 35, 5, 5);
 	joueur.nom = pseudo;
 	joueur.pvMax += Aleatoire(1, 3);
 	joueur.pv = joueur.pvMax;
 	joueur.force += Aleatoire(1, 3);
 	joueur.defense += Aleatoire(1, 3);
+	joueur.or = 5 + Aleatoire(1, 3);
 }
 
 function LevelUp(joueur) {
-	joueur.pvMax += Aleatoire(1, 3) + joueur.niveau * Aleatoire(1, 2);
-	joueur.pv = joueur.pvMax;
-	joueur.force += Aleatoire(1, 3) + joueur.niveau * Aleatoire(1, 2);
-	joueur.defense += Aleatoire(1, 3) + joueur.niveau * Aleatoire(1, 2);
+	joueur.pvMax += Aleatoire(1, 2) + joueur.niveau * Aleatoire(1, 2);
+	//joueur.pv = joueur.pvMax;
+	joueur.force += Aleatoire(1, 2) + joueur.niveau * Aleatoire(1, 2);
+	joueur.defense += Aleatoire(1, 2) + joueur.niveau * Aleatoire(1, 2);
 	joueur.niveau++;
 	joueur.xp -= joueur.palier;
 	joueur.palier = Math.floor(joueur.palier * 1.6);
 }
 
-function CreerEnnemi(nom, xmax, ymax) {
-	ennemi = new Ennemi(0, nom, 1, 8, 3, 1);
-	ennemi.id = nouvelID;
+function CreerEnnemi(type, xmax, ymax) {
+	//ennemi = new Ennemi(0, nom, 1, 8, 3, 1);
+	ennemi = new Ennemi(nouvelID, type, baseEnnemis[type].nom, baseEnnemis[type].niveau, baseEnnemis[type].pv, baseEnnemis[type].force, baseEnnemis[type].defense);
+	//ennemi.id = nouvelID;
 	nouvelID++;
+	ennemi.type = type;
 	ennemi.niveau = joueur.niveau + Aleatoire(1, 2) - 1;
 	ennemi.pv = Aleatoire(1, 2) + ennemi.niveau * 3;
 	ennemi.force = Aleatoire(1, 2) + ennemi.niveau * 3;
@@ -326,16 +391,17 @@ function CreerEnnemi(nom, xmax, ymax) {
 		ennemi.positionX = Aleatoire(1, xmax);
 		ennemi.positionY = Aleatoire(1, ymax);
 	}
-	map[ennemi.positionX][ennemi.positionY] = nom;
-	if (Chance(40)) {
+	map[ennemi.positionX][ennemi.positionY] = ennemi.nom;
+	if (Chance(70)) {
 		ennemi.inventaire.push("Potion du mob");
 	}
-	if (Chance(10)) {
+	if (Chance(60)) {
 		ennemi.inventaire.push("Épée courte");
 	}
 	if (ennemi.inventaire === []) {
 		ennemi.inventaire = "";
 	}
+	ennemi.or = Aleatoire(1, 2) * ennemi.niveau + Aleatoire(1, 5);
 	ennemis.push(ennemi);
 }
 

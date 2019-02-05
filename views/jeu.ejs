@@ -2,6 +2,7 @@
 <html>
 	<head>
 		<title>Micro RPG</title>
+		<link rel="stylesheet" href="/style.css" />
 		<style>
 
 		td /* Toutes les cellules des tableaux... */
@@ -53,6 +54,30 @@
 			top: 4px;
 			left: 320px;
 		}
+		#zoneEquipement {
+			position: absolute;
+			top: 6px;
+			left: 652px;
+		}
+		#mainG {
+			height: 130px;
+			width: 90px;
+		}
+		#mainG {
+			margin-top: 8px;
+			height: 110px;
+			width: 100px;
+		}
+		#armure {
+			margin-top: 8px;
+			height: 170px;
+			width: 140px;
+		}
+		#mainD {
+			margin-top: 8px;
+			height: 110px;
+			width: 100px;
+		}
 
 		</style>
 	</head>
@@ -74,6 +99,9 @@
 		</div>
 		<div id="zoneMap">
 		</div>
+		<div id="zoneEquipement">
+		</div>
+
 
 		<script src="http://code.jquery.com/jquery-1.10.1.min.js"></script>
 		<script src="/socket.io/socket.io.js"></script>
@@ -120,13 +148,14 @@
 
 			function ActualiserJoueur(joueur) {
 				document.getElementById('zonePersonnage').innerHTML =
-				'<u>Fiche de personnage</u> :' +
-				'<br/><b>' + joueur.nom + '</b>' +
-				'<br/>Niveau : ' + joueur.niveau +
-				'<br/>PV : ' + joueur.pv + ' / ' + joueur.pvMax +
-				'<br/>Force : ' + joueur.force +
-				'<br/>Défense : ' + joueur.defense +
-				'<br/>XP à ce niveau : ' + joueur.xp + '<br/>';
+					'<u>Fiche de personnage</u> :' +
+					'<br/><b>' + joueur.nom + '</b>' +
+					'<br/>Niveau : ' + joueur.niveau +
+					'<br/>PV : ' + joueur.pv + ' / ' + joueur.pvMax +
+					'<br/>Force : ' + joueur.force +
+					'<br/>Défense : ' + joueur.defense +
+					'<br/>XP à ce niveau : ' + joueur.xp +
+					'<br/>' + joueur.or + ' pièces d\'or';
 				//attention aux failles XSS. Utiliser innerTEXT, $``
 				//if ((nbAttaque == 0) && (joueur.enCombat == 0)) {
 					//document.getElementById('zonePersonnage').innerHTML +=
@@ -137,6 +166,7 @@
 					taille = 300;
 				}
 				$("#zoneXP").css("width", taille + "px");
+
 				document.getElementById('zoneInventaire').innerHTML =
 				'<u>Inventaire</u> :' +
 				'<br/>';
@@ -146,6 +176,12 @@
 					'<a href="/inventaire/' + i + '">' + item + '</a><br/>';
 					i++;
 				});
+				document.getElementById('zoneEquipement').innerHTML =
+					'<table><tr><td style><div id=mainG><u>Main gauche</u> :<br/><br/>' + joueur.mainG +
+					'</div></td><td rowspan=2><div id=armure><u>Armure</u> :<br/><br/>' + joueur.armure +
+					'</div></td><td><div id=mainD><u>Main droite</u> :<br/><br/>' + joueur.mainD +
+					'</div></tr><tr><td style="border: none"></td><td style="border: none"></td><tr/></table>';
+
 			}
 
 			function CheckDeplacementEnnemis(ennemi, joueur) {
@@ -264,8 +300,11 @@
 					if (ennemi.inventaire != "") {
 						ennemi.inventaire.forEach(function(item) {
 							joueur.inventaire.push(item);
+							joueur.inventaire.sort();
+							joueur.inventaire.reverse();
 						});
 					}
+					joueur.or += ennemi.or;
 					joueur.enCombat = 1;
 					map[joueur.positionX][joueur.positionY] = "J";
 					ActualiserJoueur(joueur);
@@ -275,9 +314,9 @@
 					joueur.nbAttaque = 0;
 					document.getElementById('zoneMessage').innerHTML =
 					'Bravo, vous avez terrassé un ' + ennemi.nom + ' de niveau ' + ennemi.niveau + ' !' +
-					'<br/>Vous remportez ' + ennemi.xp + ' XP !' +
+					'<br/>Vous remportez ' + ennemi.xp + ' XP et ' + ennemi.or + ' pièces d\'or !' +
 					'<br/>Continuer à farmer des mobs ?' +
-					'<br/><button type="button" onclick="ResetEnCombat(joueur); ResetAttaque(joueur); ActualiserJoueur(joueur); Vider(\'zoneEnnemi\'); Vider(\'zoneMessage\'); socket.emit(\'actualiser\', {joueurClient: joueur, ennemisClient: ennemis, idEnnemiClient: idEnnemi, mapClient: map}); socket.emit(\'supprimer_ennemi\', { joueurClient: joueur, ennemisClient: ennemis, idEnnemiClient: idEnnemi, mapClient: map});" id="bouton_combattre">Continuer !</button>';
+					'<br/><button type="button" onclick="DeplacerEnnemis(); ResetEnCombat(joueur); ResetAttaque(joueur); ActualiserJoueur(joueur); Vider(\'zoneEnnemi\'); Vider(\'zoneMessage\'); socket.emit(\'actualiser\', {joueurClient: joueur, ennemisClient: ennemis, idEnnemiClient: idEnnemi, mapClient: map}); socket.emit(\'supprimer_ennemi\', { joueurClient: joueur, ennemisClient: ennemis, idEnnemiClient: idEnnemi, mapClient: map});" id="bouton_combattre">Continuer !</button>';
 				} else {
 					socket.emit('actualiser', {joueurClient: joueur, ennemisClient: ennemis, idEnnemiClient: idEnnemi, mapClient: map});
 				}
@@ -321,8 +360,10 @@
 				while (j <= map.ymax) {
 					affichageMap += "<tr>";
 					while (i <= map.xmax) {
-						if (map[i][j] === "E") {
-							affichageMap += "<td style='background-color: yellow'>" + map[i][j] + "</td>";
+						if (map[i][j] === "Rat mutant") {
+							affichageMap += "<td style='background-image: url(/rat.png); background-size: 90%;'></td>";
+						} else if (map[i][j] === "Loup") {
+							affichageMap += "<td style='background-image: url(/loup.png); background-size: 120%;'></td>";
 						} else if (map[i][j] === "B") {
 							affichageMap += "<td style='background-color: red'>" + map[i][j] + "</td>";
 						} else if (map[i][j] === "J") {
