@@ -173,7 +173,7 @@
 				i = 0;
 				joueur.inventaire.forEach(function(item) {
 					document.getElementById('zoneInventaire').innerHTML +=
-					'<a href="/inventaire/' + i + '">' + item + '</a><br/>';
+					'<a href="/inventaire/' + i + '">' + item.nom + ' <img src="/objets/' + item.type + '.jpg" height=20 width=20></a><br/>';
 					i++;
 				});
 				document.getElementById('zoneEquipement').innerHTML =
@@ -299,9 +299,11 @@
 					joueur.xp += ennemi.xp;
 					if (ennemi.inventaire != "") {
 						ennemi.inventaire.forEach(function(item) {
+							//joueur.listeInventaire.push(item.nom)
+							//joueur.listeInventaire.push(item)
 							joueur.inventaire.push(item);
-							joueur.inventaire.sort();
-							joueur.inventaire.reverse();
+							//joueur.inventaire.sort();
+							//joueur.inventaire.reverse();
 						});
 					}
 					joueur.or += ennemi.or;
@@ -365,9 +367,9 @@
 						} else if (map[i][j] === "Loup") {
 							affichageMap += "<td style='background-image: url(/loup.png); background-size: 120%;'></td>";
 						} else if (map[i][j] === "B") {
-							affichageMap += "<td style='background-color: red'>" + map[i][j] + "</td>";
+							affichageMap += "<td style='background-image: url(/baston.png); background-size: 100%;'></td>";
 						} else if (map[i][j] === "J") {
-							affichageMap += "<td style='background-color: green'>" + map[i][j] + "</td>";
+							affichageMap += "<td style='background-image: url(/joueur.png); background-size: 135%;'></td>";
 						} else if (map[i][j] === "M") {
 							affichageMap += "<td style='background-color: black; color: white'>" + map[i][j] + "</td>";
 						} else {

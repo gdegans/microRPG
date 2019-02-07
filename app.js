@@ -4,7 +4,27 @@ xhr (ajax)
 fetch, utilise des promise
 fetch(url).then(x => x.text()).then(x => )
 
+	- Schéma de jeu :
+		- Première connexion, demande pseudo, création du joueur, de la map et des mobs
+		- Déplacement en local sur la map
+		- Lors d'une rencontre, premier envoi en session (pertinence ?)
+		- A chaque attaque, envoi session (dans le but d'utiliser des objets en cliquant vers une autre page)
+
+		! Faire uniquement des enregistrements réguliers en session, mais tout faire en local + socket.io ?
+		- Comment gérer l'utilisation d'objets notamment en combat ?
+
+		- Ne pas renvoyer sur le serveur à chaque fois mais proposer une sauvegarde ?
+		- Quelle pertinence de faire des aller-retours serveur-client ?
+		- Privilégier les event avec socket.io !
+		- AJAX ?
+		- Recharger la page une fois en entrant ou en sortant d'un combat = pas dérangeant
+		- Faire uniquement des envois reguliers au serveur, mais tout faire en local ?
+
+	- Éviter au maximum les chargements de page pour faire des anim, ou garder la valeur avant et après modif
+	 -
+
 	- Bug avec express.socket-io.session :
+		- Ennemi qui annule notre attaque quand on se soigne lors de sa mort
 		? Parfois déplacement des ennemis quand on prend un objet ?
 		- Bug d'affichage quand on raffraichit trop vite
 
@@ -13,7 +33,7 @@ fetch(url).then(x => x.text()).then(x => )
 		- Supprimer les envois inutiles
 
 	- BDD :
-		- Ennemis
+		X Ennemis
 		- Objets
 		- Equipement
 
@@ -21,11 +41,12 @@ fetch(url).then(x => x.text()).then(x => )
 		? Améliorer le level scaling
 
 	- Graphismes :
-		- Personnages
+		X Personnages
 		- Décors
 		- Objets
 		- Afficher la barre de vie
 		- Afficher la barre de mana
+		- Animations ?
 
 	- Système de message :
 		- Quand on rencontre un ennemi
@@ -75,10 +96,36 @@ class BaseEnnemis {
 	}
 }
 */
+class Objet {
+	constructor(type, nom, modifPv, modifForce, modifDefense) {
+		this.type = type;
+		this.nom = nom;
+		this.modifPv = modifPv,
+		this.modifForce = modifForce,
+		this.modifDefense = modifDefense
+	}
+}
+
+var baseObjets = [];
+var objetPotion = new Objet(0, "Potion de soin", 10, 0, 0);
+baseObjets.push(objetPotion);
+
+var baseEquipements = [];
+var equipementEpeeCourte = {
+	type: 0,
+	nom: "Épée courte",
+	modifForce: 2,
+	modifDefense: 0
+}
+baseEquipements.push(equipementEpeeCourte);
+
+joueur.mainG;
+
+
 var baseEnnemis = [];
 var ennemiFourmi = {
 	type: 0,
-	nom: "E",
+	nom: "Fourmi",
 	niveau: 1,
 	pv: 1,
 	force: 1,
@@ -155,15 +202,15 @@ app.get('/inventaire/:idObjet', function(req, res) { // Quand on arrive à la r
 			console.log(req.params.idObjet + " est un nombre");
 			if (idObjet < req.session.joueur.inventaire.length) {
 
-				if (req.session.joueur.inventaire[idObjet] === "Potion du mob") {
-					req.session.joueur.pv += 15;
+				//if (req.session.joueur.inventaire[idObjet].type === "Potion du mob") {
+					req.session.joueur.pv += req.session.joueur.inventaire[idObjet].modifPv;
 					if (req.session.joueur.pv > req.session.joueur.pvMax) {
 						req.session.joueur.pv = req.session.joueur.pvMax;
 					}
-				} else if (req.session.joueur.inventaire[idObjet] === "Épée courte") {
-					req.session.joueur.mainG = "Épée courte (+2)";
-					req.session.joueur.force += 2;
-				}
+				//} else if (req.session.joueur.inventaire[idObjet] === "Épée courte") {
+					//req.session.joueur.mainG = "Épée courte (+2)";
+					//req.session.joueur.force += 2;
+				//}
 				req.session.joueur.inventaire.splice(idObjet, 1);
 			}
 		  res.redirect('/jeu/');
@@ -355,7 +402,7 @@ function Attaquer(attaquant, cible) {
 }
 
 function CreerJoueur(pseudo) {
-	joueur = new Joueur("", 1, 35, 5, 5);
+	joueur = new Joueur("", 1, 25, 5, 5);
 	joueur.nom = pseudo;
 	joueur.pvMax += Aleatoire(1, 3);
 	joueur.pv = joueur.pvMax;
@@ -392,10 +439,10 @@ function CreerEnnemi(type, xmax, ymax) {
 		ennemi.positionY = Aleatoire(1, ymax);
 	}
 	map[ennemi.positionX][ennemi.positionY] = ennemi.nom;
-	if (Chance(70)) {
-		ennemi.inventaire.push("Potion du mob");
-	}
 	if (Chance(60)) {
+		ennemi.inventaire.push(baseObjets[0]);
+	}
+	if (Chance(0)) {
 		ennemi.inventaire.push("Épée courte");
 	}
 	if (ennemi.inventaire === []) {
